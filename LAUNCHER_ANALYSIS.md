@@ -136,6 +136,18 @@ The chain is: **launcher UI → NSUserDefaults → execv → game reads NSUserDe
 - **OpenSSL 1.1.1f** for HTTPS/certificate handling
 - Compiled from Perforce paths: `/Volumes/Stuff/P4/WIP/ASL.AGen/` and `/Users/molloy/Perforce/planetcoaster/WIP/`
 
+## macOS vs Windows — NSUserDefaults vs Command-Line Arguments
+
+The Windows version of SimCity 4 accepts command-line arguments like `-w`, `-f`, `-CustomResolution:enabled`, `-r1600x1200x32`, `-intro:off`, `-CPUCount:2`, etc.
+
+The macOS port likely **modified the game engine to read settings from NSUserDefaults instead of (or in addition to) command-line arguments**. Evidence:
+
+- The launcher stores the windowed/fullscreen preference via `[[NSUserDefaults standardUserDefaults] setObject:forKey:]` and never passes `-w` or `-f` on the command line
+- The game must therefore read this preference from NSUserDefaults on startup
+- By extension, other settings (`CustomResolution`, `CPUCount`, etc.) may also be read from NSUserDefaults rather than `argv`
+
+Since the launcher does forward all command-line arguments through to the game via `execv()`, some `-` flags may still work if the macOS engine retains the original Windows argument parser. But the **officially supported mechanism** for the macOS port is NSUserDefaults, configured either by the launcher or directly via `defaults write`.
+
 ## Summary
 
 The launcher is a thin wrapper: it shows a branded UI, validates DLC, then calls **`execv()`** to replace itself with the SimCity 4 game binary, forwarding all command-line arguments. The actual game executable name is configured in `Info.plist` under `GameGuide.SteamDefaultPlayExecutable` (Steam) or `GameGuide.AppStorePlayExecutable` (MAS). No game-specific command-line flags are hardcoded — the launcher simply passes through whatever `argv` it received.
