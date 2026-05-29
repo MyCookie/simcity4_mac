@@ -136,18 +136,58 @@ The chain is: **launcher UI → NSUserDefaults → execv → game reads NSUserDe
 - **OpenSSL 1.1.1f** for HTTPS/certificate handling
 - Compiled from Perforce paths: `/Volumes/Stuff/P4/WIP/ASL.AGen/` and `/Users/molloy/Perforce/planetcoaster/WIP/`
 
-## macOS vs Windows — NSUserDefaults vs Command-Line Arguments
+## macOS vs Windows — Preference System (Game Binary Analysis)
 
-The Windows version of SimCity 4 accepts command-line arguments like `-w`, `-f`, `-CustomResolution:enabled`, `-r1600x1200x32`, `-intro:off`, `-CPUCount:2`, etc.
+### How the Game Reads Settings
 
-The macOS port likely **modified the game engine to read settings from NSUserDefaults instead of (or in addition to) command-line arguments**. Evidence:
+The game binary (`Sim City 4 Deluxe Edition_Child`) reads configuration settings using its own C++ preference reader functions at `0x1005c7bc9` (integer) and `0x1005c7d15` (boolean). These take a C string key name and a default value. **The reader functions internally use NSUserDefaults** (`registerDefaults:`, `objectForKey:`) to persist and read settings.
 
-- The launcher stores the windowed/fullscreen preference via `[[NSUserDefaults standardUserDefaults] setObject:forKey:]` and never passes `-w` or `-f` on the command line
-- The game must therefore read this preference from NSUserDefaults on startup
-- By extension, other settings (`CustomResolution`, `CPUCount`, etc.) may also be read from NSUserDefaults rather than `argv`
+The preference keys found in the child binary are distinct from the launcher's keys:
 
-Since the launcher does forward all command-line arguments through to the game via `execv()`, some `-` flags may still work if the macOS engine retains the original Windows argument parser. But the **officially supported mechanism** for the macOS port is NSUserDefaults, configured either by the launcher or directly via `defaults write`.
+| Key | Type | Default | Purpose |
+|-----|------|---------|---------|
+| `intro-movie` | bool | true | Play intro video |
+| `fullscreen-mode` | bool | true | Start in fullscreen |
+| `custom-resolution` | bool | false | Enable custom resolution |
+| `custom-width` | int | 1024 (0x400) | Custom width |
+| `custom-height` | int | 768 (0x300) | Custom height |
+| `display.index` | int | — | Monitor selection |
+| `display.rect` | rect | — | Display rect |
+| `display.remember` | bool | false | Remember display settings |
 
-## Summary
+### Startup Relaunch Mechanism
 
-The launcher is a thin wrapper: it shows a branded UI, validates DLC, then calls **`execv()`** to replace itself with the SimCity 4 game binary, forwarding all command-line arguments. The actual game executable name is configured in `Info.plist` under `GameGuide.SteamDefaultPlayExecutable` (Steam) or `GameGuide.AppStorePlayExecutable` (MAS). No game-specific command-line flags are hardcoded — the launcher simply passes through whatever `argv` it received.
+At launch, the game binary reads these preferences and builds a **command-line string** identical to what the Windows version accepts. The logic (at `0x1000045a0`) works as follows:
+
+```
+# Read "fullscreen-mode" (default: true)
+if fullscreen-mode == true → append "-f"
+else → append "-w"
+
+# Read "intro-movie" (default: true)
+if intro-movie == false → append "-intro:off"
+
+# Read "custom-resolution" (default: false)
+if custom-resolution == true:
+    custom-width = read("custom-width", 1024)
+    custom-height = read("custom-height", 768)
+    append "-r{custom-width}x{custom-height}x32"
+    append "-CustomResolution:enabled"
+```
+
+After building the command line, the game **relaunches itself** (via `getpid()`/`kill()` + exec) with the new arguments, which means the second invocation processes the Windows-style command-line flags normally. This is the bridge mechanism: the macOS preference system generates the Windows command-line syntax and passes it to the native engine.
+
+### Summary
+
+The launch chain is:
+
+1. **Launcher** writes windowed/fullscreen to NSUserDefaults
+2. **Launcher** calls `execv()` → **Game binary (Child)** starts
+3. **Game** reads its preferences (NSUserDefaults-backed)
+4. **Game** constructs Windows-style CLI args and relaunches itself
+5. **Second invocation** parses `-f`, `-w`, `-r1920x1080x32`, etc. natively
+
+This means:
+- `defaults write` can set game preferences directly (e.g., `defaults write com.aspyr.simcity4 fullscreen-mode 0`)
+- Command-line args from Steam launch options are forwarded through by the launcher AND processed natively by the game on its second invocation
+- The macOS port does NOT use INI files (`SimCity 4.ini`, `GZGraphic2.ini`, `SimCity 4.cfg` appear in the binary but are legacy references from the Windows engine code)
