@@ -81,9 +81,36 @@ The `SteamManager` class handles:
 
 The `steam_appid.txt` file is read from `Contents/MacOS/steam_appid.txt` in the app bundle.
 
-## Preferences
+## Windowed / Fullscreen Preference
 
-Reads/writes to a JSON preferences file — the paths `Prefs.json`, `Data.json`, and `settings.xml` appear in strings. Settings like windowed/fullscreen mode are written using `NSUserDefaults` (`setBool:forKey:`, `setInteger:forKey:`, etc.).
+The launcher communicates the windowed/fullscreen choice to the game **via NSUserDefaults**, not via command-line arguments.
+
+### The flow:
+
+**1. User selects (clicking radio buttons):**
+- `windowed:` sender calls:
+  ```
+  [[NSUserDefaults standardUserDefaults] setObject:<WindowedValue> forKey:<PreferenceWindowedKey>]
+  ```
+- `fullscreen:` sender calls:
+  ```
+  [[NSUserDefaults standardUserDefaults] setObject:<FullScreenValue> forKey:<PreferenceWindowedKey>]
+  ```
+  Both call `synchronize` immediately.
+
+**2. The key and values come from Info.plist:**
+
+| Info.plist Key | Purpose |
+|---|---|
+| `GameGuide.PreferenceWindowedKey` | The `NSUserDefaults` key name (e.g. `"windowed"` or `"FullScreen"`) |
+| `GameGuide.FullScreenValue` | Value to store for fullscreen (defaults to `@(0)` i.e. `NO`) |
+| `GameGuide.WindowedValue` | Value to store for windowed (defaults to `@(1)` i.e. `YES`) |
+
+**3. Preferences survive `execv`** — Since `finishLaunch` calls `execv()` to replace the process with the game binary, and `NSUserDefaults` writes to `~/Library/Preferences/<bundle-id>.plist` on disk, the game binary reads the same key back after launch via `[[NSUserDefaults standardUserDefaults] objectForKey:<PreferenceWindowedKey>]`.
+
+### Summary
+
+The chain is: **launcher UI → NSUserDefaults → execv → game reads NSUserDefaults**. No command-line argument is involved. The Info.plist keys parameterize the exact key and values so each game can define its own convention.
 
 ## DLC Management
 
