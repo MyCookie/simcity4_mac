@@ -112,6 +112,8 @@ The launcher communicates the windowed/fullscreen choice to the game **via NSUse
 
 The chain is: **launcher UI → NSUserDefaults → execv → game reads NSUserDefaults**. No command-line argument is involved. The Info.plist keys parameterize the exact key and values so each game can define its own convention.
 
+> **Note on bundle ID:** The NSUserDefaults domain depends on the distribution channel. Steam uses `com.aspyr.simcity4.steam`, while the Mac App Store version likely uses `com.aspyr.simcity4` (untested). Substitute the correct domain when running `defaults` commands.
+
 ## DLC Management
 
 - `MASContentCheck` class handles Mac App Store receipt validation and DLC purchases

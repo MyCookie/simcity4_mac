@@ -1,6 +1,15 @@
 # SimCity 4 Deluxe (Mac Aspyr Port) — Launch Options Guide
 
-The Aspyr Mac port replaces the Windows INI-file and CLI-argument system with **NSUserDefaults** (macOS's built-in preference system). Preferences are stored in `~/Library/Preferences/com.aspyr.simcity4.plist` and can be set via the `defaults` command.
+The Aspyr Mac port replaces the Windows INI-file and CLI-argument system with **NSUserDefaults** (macOS's built-in preference system). Preferences are stored in a `.plist` file in `~/Library/Preferences/` and can be set via the `defaults` command.
+
+The bundle ID (and thus the preferences domain) depends on the distribution channel:
+
+| Channel | Bundle ID |
+|---------|-----------|
+| Steam | `com.aspyr.simcity4.steam` |
+| Mac App Store | `com.aspyr.simcity4` (untested) |
+
+> Substitute the correct bundle ID from the table above whenever you see `com.aspyr.simcity4` in the examples below.
 
 ## How Launch Works
 

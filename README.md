@@ -2,6 +2,15 @@
 
 Documentation and analysis of the Aspyr Game Guide 3 (GG3) launcher and the game binary's NSUserDefaults-based preference system for the macOS port of SimCity 4 Deluxe Edition.
 
+The bundle ID (preferences domain) depends on the distribution channel:
+
+| Channel | Bundle ID |
+|---------|-----------|
+| Steam | `com.aspyr.simcity4.steam` |
+| Mac App Store | `com.aspyr.simcity4` (untested) |
+
+> Substitute the correct bundle ID from the table above whenever you see `com.aspyr.simcity4` in the examples below.
+
 ## Translating Windows CLI Flags to macOS
 
 The Windows version uses command-line arguments. The Mac version stores the equivalent settings in NSUserDefaults. Here's how to translate common configurations:
