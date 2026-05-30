@@ -179,6 +179,30 @@ if custom-resolution == true:
 
 After building the command line, the game **relaunches itself** (via `getpid()`/`kill()` + exec) with the new arguments, which means the second invocation processes the Windows-style command-line flags normally. This is the bridge mechanism: the macOS preference system generates the Windows command-line syntax and passes it to the native engine.
 
+### Bug: rh-regcode Check Resets intro-movie on Every Launch
+
+Each launch, before building the command-line string, the game performs a registration check (at `0x100004458`). It reads the `rh-regcode` preference key:
+
+```
+0x10000444a: leaq "rh-regcode", %rdi            # preference key
+0x100004451: movl $0x100, %edx                    # buffer size
+0x100004458: callq 0x1005c7ad8                    # read_string_pref("rh-regcode", ...)
+0x10000445d: cmpb $0x0, -0x4a0(%rbp)             # non-empty?
+0x100004464: jne  0x100004477                     # skip reset if non-empty
+0x100004466: leaq "intro-movie", %rdi             # key
+0x10000446d: movl $0x1, %esi                      # value = 1
+0x100004472: callq 0x1005c7d25                    # write_bool_pref("intro-movie", 1)
+```
+
+The intention seems to be: if a registration code was entered (Aspyr's old DRM), keep intro videos enabled. However, on Steam (and likely Mac App Store), `rh-regcode` is **never set**, so every launch the game overwrites `intro-movie` back to `1`, ignoring the user's preference.
+
+**This affects any preference that might be reset by early startup checks.** The `intro-movie` key was confirmed, but other keys may be affected by similar guard logic.
+
+**Workaround:** Set a dummy `rh-regcode` so the check passes:
+```bash
+defaults write com.aspyr.simcity4.steam rh-regcode "1"
+```
+
 ### Summary
 
 The launch chain is:

@@ -117,6 +117,19 @@ These flags from the Windows version are processed natively by the engine on the
 | Music path | `Radio/Stations/Region/Music` | Same, inside the app bundle's `Contents/Resources` |
 | Startup behavior | Parses CLI args directly | Self-relaunches: NSUserDefaults → CLI args → exec |
 
+## Known Issues
+
+### intro-movie Resets to 1 on Every Launch
+
+The game overwrites `intro-movie` back to `1` at startup because it checks for a registration code (`rh-regcode`) that is never set on Steam. The check is at `0x10000445d` in the game binary.
+
+**Workaround:** Set a dummy registration code so the reset is skipped:
+```bash
+defaults write com.aspyr.simcity4.steam rh-regcode "1"
+```
+
+After this, `intro-movie 0` will persist across launches.
+
 ## Cheat Codes
 
 Same as Windows — `Cmd+X` opens the cheat console:
