@@ -119,9 +119,13 @@ These flags from the Windows version are processed natively by the engine on the
 
 ## Known Issues
 
-### intro-movie Preference Not Reliably Honored
+### intro-movie Preference Is Not Functional
 
-Setting `intro-movie 0` via `defaults write` does **not reliably** disable intro videos. The game has a registration check (`rh-regcode`) at `0x10000445d` that resets `intro-movie` to `1` at every launch when `rh-regcode` is not set (which it never is on Steam). Setting `rh-regcode` to a dummy value prevents this overwrite, but testing shows the intro still plays even with `intro-movie 0` persisting — suggesting the preference-to-CLI bridge or engine handling of `-intro:off` may not fully work in this port.
+Setting `intro-movie 0` via `defaults write` has **no effect** — the intro videos always play. The bridge mechanism at `0x100004597` correctly generates the `-intro:off` flag, but the engine's CLI parser has no corresponding handler for this flag. The string `-Intro:off` (the Windows convention) does not exist anywhere in the binary, and the Aspyr port's engine unconditionally plays the startup movies (Aspyr added their own `Aspyr.mov` to the sequence). The `intro-movie` preference is cosmetic in this port.
+
+**Workaround:** There is no known way to skip the intro videos in the macOS port. The Steam launch option `-intro:off` also has no effect since it reaches the same engine parser.
+
+Note: the game also has a registration check (`rh-regcode`) at `0x10000445d` that resets `intro-movie = 1` at every launch when `rh-regcode` is not set. Setting `rh-regcode` to a dummy value prevents this specific overwrite, but since the preference itself is not honored by the engine, this is irrelevant.
 
 ### display.rect.* Keys Are Output-Only
 

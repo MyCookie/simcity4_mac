@@ -177,7 +177,9 @@ if custom-resolution == true:
     append "-CustomResolution:enabled"
 ```
 
-After building the command line, the game **relaunches itself** (via `getpid()`/`kill()` + exec) with the new arguments, which means the second invocation processes the Windows-style command-line flags normally. This is the bridge mechanism: the macOS preference system generates the Windows command-line syntax and passes it to the native engine.
+After building the command line, the game **relaunches itself** (via `execv`) with the new arguments, which means the second invocation processes the Windows-style command-line flags normally. This is the bridge mechanism: the macOS preference system generates the Windows command-line syntax and passes it to the native engine.
+
+Testing confirms this bridge works correctly for the `fullscreen-mode` → `-w` flag (a clean launch with `fullscreen-mode 0` launches in windowed mode).
 
 ### Registration Check: rh-regcode
 
@@ -194,7 +196,26 @@ Before building the command-line string, the game performs a registration check 
 0x100004472: callq 0x1005c7d25                    # write_bool_pref("intro-movie", 1)
 ```
 
-When `rh-regcode` is not set (as on Steam), the game writes `intro-movie = 1`. Setting `rh-regcode` to a dummy value prevents this overwrite — but testing shows the intro **still plays** even with `intro-movie = 0` and the overwrite prevented. This means the `intro-movie` → `-intro:off` bridge mechanism may not work as expected in this port, or the intro plays through a different code path.
+When `rh-regcode` is not set (as on Steam), the game writes `intro-movie = 1`. Setting `rh-regcode` to a dummy value prevents this overwrite.
+
+### intro-movie Flag Is Ignored by the Engine
+
+Even with `intro-movie 0` persisting past the rh-regcode check, the bridge correctly generates `-intro:off` and appends it to the relaunch arguments — but the intro **still plays**. The CLI builder at `0x100004597` reads the preference and appends `-intro:off`:
+
+```
+0x100004597: leaq "intro-movie", %rdi             # key
+0x10000459e: xorl %esi, %esi                      # default = false
+0x1000045a0: callq read_bool                      # read "intro-movie"
+0x1000045a5: testb %al, %al
+0x1000045a7: jne  0x1000045b8                     # skip if true
+0x1000045a9: leaq " -intro:off", %rsi             # flag string
+0x1000045b0: movq %rbx, %rdi
+0x1000045b3: callq append_string                  # append to CLI args
+```
+
+However, the engine's CLI parser does **not** contain a matching flag string. Searching the binary for `-Intro:off` (the Windows convention with capital I) found **no matches**. The bridge builds `-intro:off` (lowercase), but the parser only recognizes `-f`, `-w`, `-r`, and other flags — intro filtering was apparently dropped or never implemented in the macOS port's engine.
+
+The `intro-movie` preference effectively functions as **cosmetic documentation only**. The Aspyr port added `Aspyr.mov` to the startup movie sequence, and the intro plays unconditionally regardless of this setting or any CLI flag.
 
 ### Display Detection Writes
 
