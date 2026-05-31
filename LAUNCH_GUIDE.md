@@ -119,16 +119,17 @@ These flags from the Windows version are processed natively by the engine on the
 
 ## Known Issues
 
-### intro-movie Resets to 1 on Every Launch
+### intro-movie Preference Not Reliably Honored
 
-The game overwrites `intro-movie` back to `1` at startup because it checks for a registration code (`rh-regcode`) that is never set on Steam. The check is at `0x10000445d` in the game binary.
+Setting `intro-movie 0` via `defaults write` does **not reliably** disable intro videos. The game has a registration check (`rh-regcode`) at `0x10000445d` that resets `intro-movie` to `1` at every launch when `rh-regcode` is not set (which it never is on Steam). Setting `rh-regcode` to a dummy value prevents this overwrite, but testing shows the intro still plays even with `intro-movie 0` persisting — suggesting the preference-to-CLI bridge or engine handling of `-intro:off` may not fully work in this port.
 
-**Workaround:** Set a dummy registration code so the reset is skipped:
-```bash
-defaults write com.aspyr.simcity4.steam rh-regcode "1"
-```
+### display.rect.* Keys Are Output-Only
 
-After this, `intro-movie 0` will persist across launches.
+The `display.rect.*` keys (`origin.x`, `origin.y`, `size.width`, `size.height`) are written by the game at startup based on detected display geometry. Any manual values set via `defaults write` are overwritten on the next launch with the actual display's detected dimensions.
+
+### Custom Resolution May Prevent Launch
+
+Setting `custom-resolution 1` with `custom-width` and `custom-height` can cause the game to refuse to start. This may be because the engine validates the requested resolution against detected display capabilities before applying it.
 
 ## Cheat Codes
 

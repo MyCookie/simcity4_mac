@@ -179,9 +179,9 @@ if custom-resolution == true:
 
 After building the command line, the game **relaunches itself** (via `getpid()`/`kill()` + exec) with the new arguments, which means the second invocation processes the Windows-style command-line flags normally. This is the bridge mechanism: the macOS preference system generates the Windows command-line syntax and passes it to the native engine.
 
-### Bug: rh-regcode Check Resets intro-movie on Every Launch
+### Registration Check: rh-regcode
 
-Each launch, before building the command-line string, the game performs a registration check (at `0x100004458`). It reads the `rh-regcode` preference key:
+Before building the command-line string, the game performs a registration check (at `0x100004458`). It reads the `rh-regcode` preference key:
 
 ```
 0x10000444a: leaq "rh-regcode", %rdi            # preference key
@@ -194,14 +194,19 @@ Each launch, before building the command-line string, the game performs a regist
 0x100004472: callq 0x1005c7d25                    # write_bool_pref("intro-movie", 1)
 ```
 
-The intention seems to be: if a registration code was entered (Aspyr's old DRM), keep intro videos enabled. However, on Steam (and likely Mac App Store), `rh-regcode` is **never set**, so every launch the game overwrites `intro-movie` back to `1`, ignoring the user's preference.
+When `rh-regcode` is not set (as on Steam), the game writes `intro-movie = 1`. Setting `rh-regcode` to a dummy value prevents this overwrite — but testing shows the intro **still plays** even with `intro-movie = 0` and the overwrite prevented. This means the `intro-movie` → `-intro:off` bridge mechanism may not work as expected in this port, or the intro plays through a different code path.
 
-**This affects any preference that might be reset by early startup checks.** The `intro-movie` key was confirmed, but other keys may be affected by similar guard logic.
+### Display Detection Writes
 
-**Workaround:** Set a dummy `rh-regcode` so the check passes:
-```bash
-defaults write com.aspyr.simcity4.steam rh-regcode "1"
-```
+The game detects the display at startup and writes `display.rect.*` values back to NSUserDefaults. Testing confirms these values are unconditionally overwritten with the current display's detected dimensions at every launch (e.g., `display.rect.size.width` and `display.rect.size.height` are reset to the monitor's native resolution). These are output values, not configuration inputs.
+
+### Custom Resolution Caveats
+
+Setting `custom-resolution = 1` with `custom-width` and `custom-height` causes the game to generate `-r{W}x{H}x32 -CustomResolution:enabled` and relaunch. However, testing shows this can cause the game to refuse to start, possibly because the engine validates the requested resolution against the detected display.
+
+### display.rect.* Keys
+
+The `display.rect.*` keys (`origin.x`, `origin.y`, `size.width`, `size.height`) are **written by the game binary** at startup based on the current display configuration. They are not user-configurable preferences. The game reads the current display's frame using macOS display APIs and persists the values. Attempting to manually modify these values before launch has no effect — the game overwrites them with detected values on startup.
 
 ### Summary
 
